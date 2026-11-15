@@ -37,4 +37,13 @@ test.describe('Multi-Environment Configuration Suite', { tag: ['@smoke', '@sanit
     expect(typeof env.featureFlags.experimentalUi).toBe('boolean');
     expect(['DEBUG', 'INFO', 'WARN', 'ERROR']).toContain(env.logLevel);
   });
+
+  test('Verify baseUrl CLI / process.env override when supplied', async ({ env, logger }) => {
+    if (process.env.BASE_URL) {
+      logger.info(`Validating overridden baseUrl: "${env.baseUrl}"`);
+      expect(env.baseUrl).toBe(process.env.BASE_URL);
+    } else {
+      expect(env.baseUrl).toBeTruthy();
+    }
+  });
 });

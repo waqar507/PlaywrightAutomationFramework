@@ -145,30 +145,54 @@ Simplifies tab, popup, and window switching:
 | `closePageAndSwitchBack(page, fallback)` | Closes target tab and brings parent tab back to front safely. |
 | `getPagesCount()` | Returns total open tab count in current context. |
 
-### 3.3. `FileActions` (`src/core/file-actions.ts`)
-Manages file download and upload workflows:
+### 3.4. `ApiClient` (`src/core/api-client.ts`)
+Enterprise REST API client wrapping Playwright's native `APIRequestContext` for API and hybrid UI+API testing:
 
 | Method | Description |
 |---|---|
-| `downloadFile(trigger, name, dir)` | Intercepts download event, saves file to destination, validates non-zero size, returns path. |
-| `verifyFileExists(path, minBytes)` | Validates file presence on filesystem and checks minimum size. |
-| `deleteFile(path)` | Safely cleans up downloaded test files after assertions. |
-| `uploadFile(input, path)` | Uploads file via `<input type="file">`. |
-| `uploadMultipleFiles(input, paths)` | Uploads multiple files simultaneously. |
-| `uploadViaFileChooser(trigger, path)` | Handles button triggers opening the native file chooser dialog. |
+| `get(endpoint, options)` | Executes HTTP GET with query params, headers, and returns encapsulated response. |
+| `post(endpoint, data, options)` | Executes HTTP POST with JSON body payload. |
+| `put(endpoint, data, options)` | Executes HTTP PUT with update payload. |
+| `patch(endpoint, data, options)` | Executes HTTP PATCH for partial updates. |
+| `delete(endpoint, options)` | Executes HTTP DELETE request. |
+| `setAuthToken(token, scheme)` | Sets Bearer token or authorization header for chained requests. |
+| `response.expectStatus(code)` | Asserts HTTP response status code with detailed diagnostic failure messages. |
+| `response.expectSuccess()` | Asserts HTTP 2xx success status. |
+
+#### REST API Example
+```typescript
+import { test, expect } from '@fixtures/test.fixture';
+
+test('Create and verify user via REST API @api', async ({ apiClient }) => {
+  const response = await apiClient.post('/api/users', {
+    name: 'Carlos Ray',
+    role: 'Principal SDET',
+  });
+
+  response.expectStatus(201);
+  response.expectSuccess();
+  expect(response.data.id).toBeDefined();
+  expect(response.durationMs).toBeLessThan(1000);
+});
+```
 
 ---
 
-## 🌐 4. Multi-Environment Support
+## 🌐 4. Zero-Dependency Multi-Environment Support
 
-Environments are configured via dedicated `.env` files:
-- `.env.dev`: Development environment (`https://dev.example.com`)
-- `.env.qa`: Quality Assurance environment (`https://qa.example.com`)
-- `.env.staging`: Staging / Pre-prod environment (`https://staging.example.com`)
-- `.env.prod`: Production monitoring environment (`https://prod.example.com`)
+The framework eliminates external dependencies like `dotenv` by using a **pure TypeScript configuration matrix** ([environment.config.ts](file:///C:/Users/Shubi/.gemini/antigravity/scratch/playwright-enterprise-framework/src/config/environment.config.ts)).
 
-### Environment Architecture
-`src/config/environment.config.ts` dynamically loads the requested environment using the `ENV` runtime variable:
+### Why Pure TypeScript Over `dotenv`?
+1. **Zero Runtime Dependencies**: No `dotenv` package needed in `dependencies`.
+2. **Compile-Time Type Safety**: Typographical errors in configuration keys are flagged immediately by TypeScript.
+3. **Instant IDE Autocomplete**: Fully typed environment schema with URL validation, credential trees, and feature flags.
+4. **Environment Variable Overrides**: Supports CLI or CI/CD process overrides (e.g. `BASE_URL=...`) without losing preset defaults.
+
+### Environment Presets
+- **`dev`**: `https://dev.example.com` (API: `https://api-dev.example.com`, experimental UI: `true`)
+- **`qa`** *(default fallback)*: `https://qa.example.com` (API: `https://api-qa.example.com`)
+- **`staging`**: `https://staging.example.com` (API: `https://api-staging.example.com`)
+- **`prod`**: `https://prod.example.com` (API: `https://api.example.com`)
 
 ```bash
 # Run against QA (default)
@@ -322,11 +346,13 @@ npm run report
 
 The framework uses a unified launcher ([runner.js](file:///C:/Users/Shubi/.gemini/antigravity/scratch/playwright-enterprise-framework/runner.js)) with **safe, intelligent default fallbacks**. If you don't supply `--env` or `--grep`, the framework defaults safely without throwing errors:
 
-### Default Fallbacks Matrix
-| Parameter | Default Fallback Value | Override Argument |
+### Default Fallbacks & Runtime Overrides Matrix
+| Parameter | Default Fallback Value | Runtime CLI Override Flags |
 |---|---|---|
-| **Environment** | `qa` (`.env.qa`) | `--env=dev` \| `--env=staging` \| `--env=prod` |
-| **Tag Filter** | `@smoke` (fast sanity health check) | `--grep="@regression"` \| `--grep="@files"` \| `--all` |
+| **Environment** | `qa` (`.env.qa` preset) | `--env=dev` \| `--env=staging` \| `--env=prod` |
+| **UI Base URL** | Inherited from active environment preset | `--base-url="https://..."` \| `-u "https://..."` |
+| **API Base URL** | Inherited from active environment preset | `--api-base-url="https://..."` |
+| **Tag Filter** | `@smoke` (fast sanity health check) | `--grep="@regression"` \| `--grep="@api"` \| `--all` |
 | **Browser Project** | `chromium` | `--project=firefox` \| `--project=webkit` |
 | **Parallel Concurrency** | `4 workers` | `--workers=2` \| `--workers=8` |
 
@@ -338,18 +364,24 @@ The framework uses a unified launcher ([runner.js](file:///C:/Users/Shubi/.gemin
 # 1. Zero Arguments (Defaults to QA environment + @smoke tests)
 npm test
 
-# 2. Override Environment Only (Runs @smoke against Staging)
-npm test -- --env=staging
+# 2. Override Base URL on the Fly (e.g. Ephemeral preview branch / PR deployment)
+npm test -- --base-url="https://pr-99.preview.company.com"
 
-# 3. Override Tag Filter Only (Runs full @regression against QA)
+# 3. Override Environment AND Base URL
+npm test -- --env=staging --base-url="https://custom-staging.domain.com"
+
+# 4. Override API Base URL for API Testing
+npm test -- --api-base-url="https://custom-api.domain.com" --grep="@api"
+
+# 5. Override Tag Filter Only (Runs full @regression against QA)
 npm test -- --grep="@regression"
 
-# 4. Run ALL Tests (Bypasses tag filtering)
+# 6. Run ALL Tests (Bypasses tag filtering)
 npm test -- --all
 npm test -- --env=staging --all
 
-# 5. Full Custom Override
-npm test -- --env=dev --grep="@regression" --workers=2
+# 7. Full Custom Override
+npm test -- --env=dev --base-url="https://dev-branch.domain.com" --grep="@regression" --workers=2
 
 # 6. Interactive UI & Reports
 npm run test:ui

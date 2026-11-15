@@ -1,4 +1,4 @@
-import { test as baseTest, Page } from '@playwright/test';
+import { test as baseTest, Page, APIRequestContext } from '@playwright/test';
 import { PracticeFormPage } from '@pages/practice-form.page';
 import { WindowHubPage } from '@pages/window-hub.page';
 import { FileHubPage } from '@pages/file-hub.page';
@@ -6,6 +6,7 @@ import { WebActions } from '@core/web-actions';
 import { WindowManager } from '@core/window-manager';
 import { FileActions } from '@core/file-actions';
 import { AssertionHelper } from '@core/assertion-helper';
+import { ApiClient } from '@core/api-client';
 import { Logger } from '@utils/logger';
 import { ENV_CONFIG, EnvironmentConfig } from '@config/environment.config';
 
@@ -22,6 +23,10 @@ export interface FrameworkFixtures {
   windowManager: WindowManager;
   fileActions: FileActions;
   assertHelper: AssertionHelper;
+
+  // API Utility
+  apiClient: ApiClient;
+  createApiClient: (baseUrl?: string) => ApiClient;
 
   // Page Object Models
   practiceFormPage: PracticeFormPage;
@@ -59,6 +64,14 @@ export const test = baseTest.extend<FrameworkFixtures>({
 
   assertHelper: async ({ page, logger }, use) => {
     await use(new AssertionHelper(page, logger));
+  },
+
+  apiClient: async ({ request, logger }, use) => {
+    await use(new ApiClient(request, undefined, logger));
+  },
+
+  createApiClient: async ({ request, logger }, use) => {
+    await use((customBaseUrl?: string) => new ApiClient(request, customBaseUrl, logger));
   },
 
   practiceFormPage: async ({ page }, use) => {
