@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enterprise Automation Practice Hub</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 24px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 32px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+    h1 { color: var(--primary); margin-top: 0; }
+    .section {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .section-title {
+      font-weight: 600;
+      font-size: 1.15rem;
+      margin-bottom: 16px;
+      color: #334155;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+    input[type="text"], input[type="email"], select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-sizing: border-box;
+      font-size: 0.95rem;
+    }
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    button {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+    button:hover { background-color: #1d4ed8; }
+    button.secondary { background-color: #64748b; }
+    button.secondary:hover { background-color: #475569; }
+    .status-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 4px;
+      background: #e0f2fe;
+      color: #0369a1;
+      font-weight: 500;
+      margin-top: 8px;
+    }
+    /* Custom Dropdown Simulation */
+    .custom-dropdown-container {
+      position: relative;
+      width: 100%;
+    }
+    .custom-dropdown-trigger {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+    }
+    .custom-dropdown-menu {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+      z-index: 10;
+      list-style: none;
+      padding: 6px 0;
+      margin: 4px 0 0 0;
+    }
+    .custom-dropdown-menu.open { display: block; }
+    .custom-dropdown-item {
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+    .custom-dropdown-item:hover { background-color: #f1f5f9; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px;
+      text-align: left;
+    }
+    th { background: #f8fafc; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1 id="app-title">Enterprise Automation Practice Hub</h1>
+      <p id="env-banner">Running in Local Mock Sandbox for Guaranteed Deterministic Execution</p>
+    </header>
+
+    <!-- SECTION: Text and Clicks -->
+    <section class="section" id="actions-section">
+      <div class="section-title">1. Form Inputs & Click Operations</div>
+      <div class="form-group">
+        <label for="full-name">Full Name</label>
+        <input type="text" id="full-name" placeholder="Enter your full name">
+      </div>
+      <div class="form-group">
+        <label for="user-email">User Email</label>
+        <input type="email" id="user-email" placeholder="name@example.com">
+      </div>
+      <div class="btn-group">
+        <button id="btn-single-click" onclick="recordClick('Single Click Recorded')">Click Me</button>
+        <button id="btn-double-click" class="secondary" ondblclick="recordClick('Double Click Recorded')">Double Click Me</button>
+        <button id="btn-right-click" class="secondary" oncontextmenu="recordRightClick(event)">Right Click Me</button>
+      </div>
+      <div id="click-status" class="status-badge">No click event yet</div>
+    </section>
+
+    <!-- SECTION: Dropdown Selection -->
+    <section class="section" id="dropdowns-section">
+      <div class="section-title">2. Dropdown Selection (Native & Custom)</div>
+      
+      <!-- Native Single Select -->
+      <div class="form-group">
+        <label for="country-select">Select Country (Native Select by Value/Label/Index)</label>
+        <select id="country-select" onchange="updateDropdownStatus()">
+          <option value="">-- Choose Country --</option>
+          <option value="us">United States</option>
+          <option value="uk">United Kingdom</option>
+          <option value="de">Germany</option>
+          <option value="in">India</option>
+          <option value="ca">Canada</option>
+        </select>
+      </div>
+
+      <!-- Native Multi Select -->
+      <div class="form-group">
+        <label for="skills-select">Technical Skills (Multi-Select)</label>
+        <select id="skills-select" multiple size="4" onchange="updateMultiSelectStatus()">
+          <option value="playwright">Playwright</option>
+          <option value="typescript">TypeScript</option>
+          <option value="cicd">CI/CD Automation</option>
+          <option value="docker">Docker</option>
+        </select>
+      </div>
+
+      <!-- Custom Select Component -->
+      <div class="form-group">
+        <label>Role Assignment (Custom Div/List Dropdown)</label>
+        <div class="custom-dropdown-container">
+          <div id="custom-role-trigger" class="custom-dropdown-trigger" onclick="toggleCustomMenu()">
+            <span id="custom-role-selected">Select a Role...</span>
+            <span>▼</span>
+          </div>
+          <ul id="custom-role-menu" class="custom-dropdown-menu">
+            <li class="custom-dropdown-item" onclick="selectRole('Principal Test Architect')">Principal Test Architect</li>
+            <li class="custom-dropdown-item" onclick="selectRole('Lead SDET')">Lead SDET</li>
+            <li class="custom-dropdown-item" onclick="selectRole('QA Engineering Manager')">QA Engineering Manager</li>
+            <li class="custom-dropdown-item" onclick="selectRole('DevOps Specialist')">DevOps Specialist</li>
+          </ul>
+        </div>
+      </div>
+
+      <div id="dropdown-status" class="status-badge">No dropdown selection yet</div>
+    </section>
+
+    <!-- SECTION: Checkboxes & Radio -->
+    <section class="section" id="options-section">
+      <div class="section-title">3. Checkboxes & Radio Buttons</div>
+      <div class="form-group">
+        <label><input type="checkbox" id="chk-terms" onchange="updateCheckboxStatus()"> I accept the terms & conditions</label>
+        <label><input type="checkbox" id="chk-newsletter" checked onchange="updateCheckboxStatus()"> Subscribe to weekly newsletter</label>
+      </div>
+      <div class="form-group">
+        <label><input type="radio" name="plan" id="radio-pro" value="pro" checked onchange="updateRadioStatus()"> Professional Plan</label>
+        <label><input type="radio" name="plan" id="radio-enterprise" value="enterprise" onchange="updateRadioStatus()"> Enterprise Plan</label>
+      </div>
+      <div id="options-status" class="status-badge">Checkbox & Radio Status Ready</div>
+    </section>
+
+    <!-- SECTION: Dynamic Web Table -->
+    <section class="section" id="table-section">
+      <div class="section-title">4. Web Table Component</div>
+      <table id="employees-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Role</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>101</td>
+            <td>Alex Rivera</td>
+            <td>Principal Test Architect</td>
+            <td>Active</td>
+          </tr>
+          <tr>
+            <td>102</td>
+            <td>Sarah Chen</td>
+            <td>Lead SDET</td>
+            <td>Active</td>
+          </tr>
+          <tr>
+            <td>103</td>
+            <td>David Miller</td>
+            <td>QA Automation Engineer</td>
+            <td>Inactive</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    function recordClick(msg) {
+      document.getElementById('click-status').innerText = msg;
+    }
+    function recordRightClick(e) {
+      e.preventDefault();
+      document.getElementById('click-status').innerText = 'Right Click Recorded';
+    }
+    function updateDropdownStatus() {
+      const select = document.getElementById('country-select');
+      const val = select.value;
+      const text = select.options[select.selectedIndex]?.text || '';
+      document.getElementById('dropdown-status').innerText = `Selected Country: ${text} (${val})`;
+    }
+    function updateMultiSelectStatus() {
+      const select = document.getElementById('skills-select');
+      const selected = Array.from(select.selectedOptions).map(o => o.value);
+      document.getElementById('dropdown-status').innerText = `Selected Skills: ${selected.join(', ')}`;
+    }
+    function toggleCustomMenu() {
+      const menu = document.getElementById('custom-role-menu');
+      menu.classList.toggle('open');
+    }
+    function selectRole(role) {
+      document.getElementById('custom-role-selected').innerText = role;
+      document.getElementById('custom-role-menu').classList.remove('open');
+      document.getElementById('dropdown-status').innerText = `Selected Role: ${role}`;
+    }
+    function updateCheckboxStatus() {
+      const terms = document.getElementById('chk-terms').checked;
+      const news = document.getElementById('chk-newsletter').checked;
+      document.getElementById('options-status').innerText = `Terms: ${terms}, Newsletter: ${news}`;
+    }
+    function updateRadioStatus() {
+      const checkedRadio = document.querySelector('input[name="plan"]:checked');
+      document.getElementById('options-status').innerText = `Plan: ${checkedRadio ? checkedRadio.value : 'none'}`;
+    }
+  </script>
+</body>
+</html>

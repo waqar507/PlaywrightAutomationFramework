@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>File Transfer Test Hub</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 30px;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      max-width: 650px;
+      margin: 0 auto;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+    .section {
+      border: 1px solid #e2e8f0;
+      padding: 16px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #16a34a;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:hover { background: #15803d; }
+    .badge {
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Enterprise File Operations Hub</h2>
+
+    <!-- Download Section -->
+    <div class="section">
+      <h3>1. File Download</h3>
+      <p>Click below to generate and download a sample export file.</p>
+      <button id="btn-download" onclick="triggerDownload()">Download Sample Report (.txt)</button>
+      <div id="download-status" class="badge">Ready to download</div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="section">
+      <h3>2. File Upload</h3>
+      <p>Select a file to upload:</p>
+      <input type="file" id="file-input" onchange="handleFileSelect(event)">
+      <div id="upload-status" class="badge">No file selected</div>
+    </div>
+  </div>
+
+  <script>
+    function triggerDownload() {
+      const content = "Enterprise Automation Framework Download Test\nGenerated at: " + new Date().toISOString() + "\nStatus: SUCCESS\n";
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'enterprise-report.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      document.getElementById('download-status').innerText = 'Download initiated: enterprise-report.txt';
+    }
+
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (file) {
+        document.getElementById('upload-status').innerText = `Uploaded File: ${file.name} (${file.size} bytes)`;
+      } else {
+        document.getElementById('upload-status').innerText = 'No file selected';
+      }
+    }
+  </script>
+</body>
+</html>
