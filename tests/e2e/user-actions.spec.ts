@@ -31,6 +31,28 @@ test.describe('UI User Actions Suite', { tag: ['@regression', '@actions'] }, () 
     );
   });
 
+  test('Verify click with native clickOptions (delay, clickCount, force)', async ({ practiceFormPage }) => {
+    // Single click with native delay option (100ms hold between mousedown and mouseup)
+    await practiceFormPage.actions.click(practiceFormPage.singleClickBtn, 'Single Click Button with delay', {
+      delay: 100,
+    });
+    await practiceFormPage.assert.assertExactText(
+      practiceFormPage.clickStatusBadge,
+      'Single Click Recorded',
+      'Click Status Badge'
+    );
+
+    // Double click using native clickCount: 2 option
+    await practiceFormPage.actions.click(practiceFormPage.doubleClickBtn, 'Double Click Button via clickCount', {
+      clickCount: 2,
+    });
+    await practiceFormPage.assert.assertExactText(
+      practiceFormPage.clickStatusBadge,
+      'Double Click Recorded',
+      'Click Status Badge'
+    );
+  });
+
   test('Verify text entry, clear, and sequential typing', async ({ practiceFormPage }) => {
     const testName = 'Jane Doe';
     const testEmail = 'jane.doe@enterprise-qa.com';

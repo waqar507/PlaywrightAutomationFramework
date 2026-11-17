@@ -1,24 +1,32 @@
-import { Page, Locator, Frame } from '@playwright/test';
+import {
+  Page,
+  Locator,
+  Frame,
+  LocatorScreenshotOptions,
+} from '@playwright/test';
 import { Logger } from '@utils/logger';
-import { COMMON_TIMEOUTS } from '@config/test-data.config';
+import { ENV_CONFIG, StandardUserRole } from '@config/environment.config';
 
-export interface ClickOptions {
-  force?: boolean;
-  timeout?: number;
-  clickCount?: number;
-  button?: 'left' | 'right' | 'middle';
-  delay?: number;
-}
+// Import Playwright's native parameter types directly
+export type LocatorClickOptions = Parameters<Locator['click']>[0];
+export type LocatorDblclickOptions = Parameters<Locator['dblclick']>[0];
+export type LocatorFillOptions = Parameters<Locator['fill']>[1];
+export type LocatorClearOptions = Parameters<Locator['clear']>[0];
+export type LocatorSelectOptionOptions = Parameters<Locator['selectOption']>[1];
+export type LocatorCheckOptions = Parameters<Locator['check']>[0];
+export type LocatorHoverOptions = Parameters<Locator['hover']>[0];
+export type LocatorDragToOptions = Parameters<Locator['dragTo']>[1];
+export type LocatorPressOptions = Parameters<Locator['press']>[1];
 
-export interface TypeOptions {
+export interface TypeOptions extends LocatorFillOptions {
   clearFirst?: boolean;
   delay?: number;
-  timeout?: number;
 }
 
 /**
  * Enterprise Web Actions Library
- * Encapsulates robust, auto-waiting, self-healing DOM operations with integrated logging.
+ * Performs direct, native Playwright actions with full auto-waiting, auto-retry,
+ * and optional clickOptions/delay parameters without artificial redundant wait wrappers.
  */
 export class WebActions {
   protected page: Page;
@@ -30,96 +38,114 @@ export class WebActions {
   }
 
   // ==========================================
-  // CLICK OPERATIONS
+  // CLICK OPERATIONS (Direct Playwright Auto-Wait)
   // ==========================================
 
   /**
-   * Clicks an element with auto-waiting for visibility and actionability.
+   * Clicks an element directly. Playwright automatically auto-waits for visibility,
+   * stability, receiving events, and enablement before performing the click.
    */
-  public async click(locator: Locator, description = 'element', options?: ClickOptions): Promise<void> {
+  public async click(
+    locator: Locator,
+    description = 'element',
+    options?: LocatorClickOptions
+  ): Promise<void> {
     this.logger.debug(`Clicking on ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: options?.timeout ?? COMMON_TIMEOUTS.MEDIUM });
-    await locator.click({
-      force: options?.force ?? false,
-      timeout: options?.timeout ?? COMMON_TIMEOUTS.MEDIUM,
-      button: options?.button ?? 'left',
-      clickCount: options?.clickCount ?? 1,
-      delay: options?.delay ?? 0,
-    });
+    await locator.click(options);
   }
 
   /**
-   * Safely attempts to click an element, returning true on success or false on timeout without throwing.
+   * Double clicks on an element directly.
    */
-  public async safeClick(locator: Locator, description = 'element', timeout = COMMON_TIMEOUTS.SHORT): Promise<boolean> {
-    try {
-      this.logger.debug(`Attempting safe click on ${description}`);
-      await locator.waitFor({ state: 'visible', timeout });
-      await locator.click({ timeout });
-      return true;
-    } catch {
-      this.logger.warn(`Safe click skipped: ${description} not clickable within ${timeout}ms`);
-      return false;
-    }
-  }
-
-  /**
-   * Double clicks on an element.
-   */
-  public async doubleClick(locator: Locator, description = 'element'): Promise<void> {
+  public async doubleClick(
+    locator: Locator,
+    description = 'element',
+    options?: LocatorDblclickOptions
+  ): Promise<void> {
     this.logger.debug(`Double clicking on ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    await locator.dblclick({ timeout: COMMON_TIMEOUTS.MEDIUM });
+    await locator.dblclick(options);
   }
 
   /**
-   * Performs a right-click (context menu) on an element.
+   * Performs a right-click (context menu) directly on an element.
    */
-  public async rightClick(locator: Locator, description = 'element'): Promise<void> {
+  public async rightClick(
+    locator: Locator,
+    description = 'element',
+    options?: Omit<LocatorClickOptions, 'button'>
+  ): Promise<void> {
     this.logger.debug(`Right-clicking on ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    await locator.click({ button: 'right', timeout: COMMON_TIMEOUTS.MEDIUM });
+    await locator.click({ ...options, button: 'right' });
   }
 
   /**
-   * Force clicks an element bypassing actionability checks.
+   * Force clicks an element directly, bypassing actionability checks if needed.
    */
-  public async forceClick(locator: Locator, description = 'element'): Promise<void> {
+  public async forceClick(
+    locator: Locator,
+    description = 'element',
+    options?: Omit<LocatorClickOptions, 'force'>
+  ): Promise<void> {
     this.logger.debug(`Force clicking on ${description}`);
-    await locator.click({ force: true, timeout: COMMON_TIMEOUTS.MEDIUM });
+    await locator.click({ ...options, force: true });
   }
 
   /**
-   * Retries clicking an element up to maxRetries times if transient overlays occur.
+   * Retries clicking an element when transient DOM detachments or overlays occur.
    */
-  public async retryClick(locator: Locator, description = 'element', maxRetries = 3, retryDelayMs = 500): Promise<void> {
+  public async retryClick(
+    locator: Locator,
+    description = 'element',
+    maxRetries = 3,
+    options?: LocatorClickOptions
+  ): Promise<void> {
     let attempts = 0;
     while (attempts < maxRetries) {
       try {
         attempts++;
         this.logger.debug(`Retry click on ${description} (Attempt ${attempts}/${maxRetries})`);
-        await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.SHORT });
-        await locator.click({ timeout: COMMON_TIMEOUTS.SHORT });
+        await locator.click(options);
         return;
       } catch (err) {
         if (attempts >= maxRetries) {
           this.logger.error(`Failed to click ${description} after ${maxRetries} attempts`, err);
           throw err;
         }
-        await this.page.waitForTimeout(retryDelayMs);
+        await this.page.waitForTimeout(300);
       }
     }
   }
 
   /**
-   * Clicks an element identified by exact or partial text content.
+   * Safely attempts a click, returning true if succeeded or false on timeout without throwing.
    */
-  public async clickByText(text: string, exact = false, description?: string): Promise<void> {
+  public async safeClick(
+    locator: Locator,
+    description = 'element',
+    options?: LocatorClickOptions
+  ): Promise<boolean> {
+    try {
+      this.logger.debug(`Attempting safe click on ${description}`);
+      await locator.click({ timeout: 3000, ...options });
+      return true;
+    } catch {
+      this.logger.warn(`Safe click skipped: ${description} not clickable within timeout`);
+      return false;
+    }
+  }
+
+  /**
+   * Clicks an element identified by text content.
+   */
+  public async clickByText(
+    text: string,
+    exact = false,
+    description?: string,
+    options?: LocatorClickOptions
+  ): Promise<void> {
     const desc = description || `element with text "${text}"`;
     this.logger.debug(`Clicking ${desc}`);
-    const locator = this.page.getByText(text, { exact });
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    await locator.click();
+    await this.page.getByText(text, { exact }).click(options);
   }
 
   // ==========================================
@@ -127,76 +153,94 @@ export class WebActions {
   // ==========================================
 
   /**
-   * Enters text into an input or textarea element with auto-waiting.
+   * Enters text into an input field directly with auto-waiting.
+   * If a delay is supplied, types sequentially with inter-key pauses.
    */
-  public async enterText(locator: Locator, text: string, description = 'input field', options?: TypeOptions): Promise<void> {
+  public async enterText(
+    locator: Locator,
+    text: string,
+    description = 'input field',
+    options?: TypeOptions
+  ): Promise<void> {
     this.logger.debug(`Entering text into ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: options?.timeout ?? COMMON_TIMEOUTS.MEDIUM });
 
     if (options?.clearFirst) {
-      await locator.clear({ timeout: options?.timeout ?? COMMON_TIMEOUTS.MEDIUM });
+      await locator.clear();
     }
 
     if (options?.delay && options.delay > 0) {
-      await locator.pressSequentially(text, { delay: options.delay });
+      await locator.pressSequentially(text, { delay: options.delay, timeout: options.timeout });
     } else {
-      await locator.fill(text, { timeout: options?.timeout ?? COMMON_TIMEOUTS.MEDIUM });
+      await locator.fill(text, options);
     }
   }
 
   /**
-   * Clears existing text and types sequentially (useful for autocompletes).
+   * Clears existing text and types sequentially (useful for autocomplete inputs).
    */
-  public async clearAndType(locator: Locator, text: string, description = 'input field', delay = 50): Promise<void> {
+  public async clearAndType(
+    locator: Locator,
+    text: string,
+    description = 'input field',
+    delay = 50,
+    options?: LocatorFillOptions
+  ): Promise<void> {
     this.logger.debug(`Clearing and sequentially typing into ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
     await locator.clear();
-    await locator.pressSequentially(text, { delay });
+    await locator.pressSequentially(text, { delay, timeout: options?.timeout });
   }
 
   /**
-   * Clears the value of an input field.
+   * Clears the value of an input field directly.
    */
-  public async clearText(locator: Locator, description = 'input field'): Promise<void> {
+  public async clearText(
+    locator: Locator,
+    description = 'input field',
+    options?: LocatorClearOptions
+  ): Promise<void> {
     this.logger.debug(`Clearing text in ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    await locator.clear();
+    await locator.clear(options);
   }
 
   /**
-   * Presses a specific keyboard key on an element (e.g. 'Enter', 'Tab', 'Escape').
+   * Presses a specific keyboard key directly on an element.
    */
-  public async pressKey(locator: Locator, key: string, description = 'element'): Promise<void> {
+  public async pressKey(
+    locator: Locator,
+    key: string,
+    description = 'element',
+    options?: LocatorPressOptions
+  ): Promise<void> {
     this.logger.debug(`Pressing key "${key}" on ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    await locator.press(key);
+    await locator.press(key, options);
   }
 
   /**
-   * Retrieves inner text of an element.
+   * Retrieves inner text of an element directly.
    */
   public async getText(locator: Locator, description = 'element'): Promise<string> {
     this.logger.debug(`Retrieving text from ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
     const text = await locator.innerText();
     return text.trim();
   }
 
   /**
-   * Retrieves input value of an element.
+   * Retrieves input value of an element directly.
    */
   public async getValue(locator: Locator, description = 'input element'): Promise<string> {
     this.logger.debug(`Retrieving value from ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
     return await locator.inputValue();
   }
 
   /**
    * Retrieves an attribute value from an element.
    */
-  public async getAttribute(locator: Locator, attributeName: string, description = 'element'): Promise<string | null> {
+  public async getAttribute(
+    locator: Locator,
+    attributeName: string,
+    description = 'element'
+  ): Promise<string | null> {
     this.logger.debug(`Retrieving attribute "${attributeName}" from ${description}`);
-    await locator.waitFor({ state: 'attached', timeout: COMMON_TIMEOUTS.MEDIUM });
     return await locator.getAttribute(attributeName);
   }
 
@@ -205,39 +249,55 @@ export class WebActions {
   // ==========================================
 
   /**
-   * Selects an option from a standard HTML <select> by value attribute.
+   * Selects an option from an HTML <select> by value attribute directly.
    */
-  public async selectByValue(locator: Locator, value: string, description = 'dropdown'): Promise<string[]> {
+  public async selectByValue(
+    locator: Locator,
+    value: string,
+    description = 'dropdown',
+    options?: LocatorSelectOptionOptions
+  ): Promise<string[]> {
     this.logger.debug(`Selecting option by value "${value}" in ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    return await locator.selectOption({ value });
+    return await locator.selectOption({ value }, options);
   }
 
   /**
-   * Selects an option from a standard HTML <select> by visible text label.
+   * Selects an option from an HTML <select> by visible label text directly.
    */
-  public async selectByLabel(locator: Locator, label: string, description = 'dropdown'): Promise<string[]> {
+  public async selectByLabel(
+    locator: Locator,
+    label: string,
+    description = 'dropdown',
+    options?: LocatorSelectOptionOptions
+  ): Promise<string[]> {
     this.logger.debug(`Selecting option by visible label "${label}" in ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    return await locator.selectOption({ label });
+    return await locator.selectOption({ label }, options);
   }
 
   /**
-   * Selects an option from a standard HTML <select> by zero-based index.
+   * Selects an option from an HTML <select> by index directly.
    */
-  public async selectByIndex(locator: Locator, index: number, description = 'dropdown'): Promise<string[]> {
+  public async selectByIndex(
+    locator: Locator,
+    index: number,
+    description = 'dropdown',
+    options?: LocatorSelectOptionOptions
+  ): Promise<string[]> {
     this.logger.debug(`Selecting option by index ${index} in ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    return await locator.selectOption({ index });
+    return await locator.selectOption({ index }, options);
   }
 
   /**
-   * Selects multiple options in a multi-select element.
+   * Selects multiple options in a multi-select dropdown directly.
    */
-  public async selectMultiple(locator: Locator, valuesOrLabels: string[], description = 'multi-select dropdown'): Promise<string[]> {
+  public async selectMultiple(
+    locator: Locator,
+    valuesOrLabels: string[],
+    description = 'multi-select dropdown',
+    options?: LocatorSelectOptionOptions
+  ): Promise<string[]> {
     this.logger.debug(`Selecting multiple options [${valuesOrLabels.join(', ')}] in ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    return await locator.selectOption(valuesOrLabels);
+    return await locator.selectOption(valuesOrLabels, options);
   }
 
   /**
@@ -250,16 +310,13 @@ export class WebActions {
     searchLocator?: Locator
   ): Promise<void> {
     this.logger.debug(`Selecting custom dropdown option "${optionText}"`);
-    await triggerLocator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
     await triggerLocator.click();
 
     if (searchLocator) {
-      await searchLocator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.SHORT });
       await searchLocator.fill(optionText);
     }
 
     const optionItem = this.page.locator(`${optionsContainerSelector} >> text="${optionText}"`).first();
-    await optionItem.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
     await optionItem.click();
   }
 
@@ -268,7 +325,6 @@ export class WebActions {
    */
   public async getSelectedOptionText(locator: Locator, description = 'dropdown'): Promise<string> {
     this.logger.debug(`Getting selected option text from ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
     return await locator.locator('option:checked').innerText();
   }
 
@@ -277,7 +333,6 @@ export class WebActions {
    */
   public async getAllOptionTexts(locator: Locator, description = 'dropdown'): Promise<string[]> {
     this.logger.debug(`Retrieving all option texts from ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
     return await locator.locator('option').allInnerTexts();
   }
 
@@ -286,21 +341,27 @@ export class WebActions {
   // ==========================================
 
   /**
-   * Checks a checkbox or radio button if not already checked.
+   * Checks a checkbox or radio button directly.
    */
-  public async check(locator: Locator, description = 'checkbox'): Promise<void> {
+  public async check(
+    locator: Locator,
+    description = 'checkbox',
+    options?: LocatorCheckOptions
+  ): Promise<void> {
     this.logger.debug(`Checking ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    await locator.check({ timeout: COMMON_TIMEOUTS.MEDIUM });
+    await locator.check(options);
   }
 
   /**
-   * Unchecks a checkbox if checked.
+   * Unchecks a checkbox directly.
    */
-  public async uncheck(locator: Locator, description = 'checkbox'): Promise<void> {
+  public async uncheck(
+    locator: Locator,
+    description = 'checkbox',
+    options?: Parameters<Locator['uncheck']>[0]
+  ): Promise<void> {
     this.logger.debug(`Unchecking ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    await locator.uncheck({ timeout: COMMON_TIMEOUTS.MEDIUM });
+    await locator.uncheck(options);
   }
 
   /**
@@ -308,14 +369,17 @@ export class WebActions {
    */
   public async isChecked(locator: Locator, description = 'checkbox'): Promise<boolean> {
     this.logger.debug(`Checking if ${description} is checked`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
     return await locator.isChecked();
   }
 
   /**
    * Sets checkbox state explicitly to true (checked) or false (unchecked).
    */
-  public async setCheckboxState(locator: Locator, shouldBeChecked: boolean, description = 'checkbox'): Promise<void> {
+  public async setCheckboxState(
+    locator: Locator,
+    shouldBeChecked: boolean,
+    description = 'checkbox'
+  ): Promise<void> {
     const currentState = await this.isChecked(locator, description);
     if (currentState !== shouldBeChecked) {
       if (shouldBeChecked) {
@@ -331,22 +395,28 @@ export class WebActions {
   // ==========================================
 
   /**
-   * Hovers over an element.
+   * Hovers over an element directly.
    */
-  public async hover(locator: Locator, description = 'element'): Promise<void> {
+  public async hover(
+    locator: Locator,
+    description = 'element',
+    options?: LocatorHoverOptions
+  ): Promise<void> {
     this.logger.debug(`Hovering over ${description}`);
-    await locator.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    await locator.hover();
+    await locator.hover(options);
   }
 
   /**
-   * Drags a source element and drops it onto a target element.
+   * Drags a source element and drops it onto a target element directly.
    */
-  public async dragAndDrop(source: Locator, target: Locator, description = 'drag-and-drop'): Promise<void> {
+  public async dragAndDrop(
+    source: Locator,
+    target: Locator,
+    description = 'drag-and-drop',
+    options?: LocatorDragToOptions
+  ): Promise<void> {
     this.logger.debug(`Performing ${description}`);
-    await source.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    await target.waitFor({ state: 'visible', timeout: COMMON_TIMEOUTS.MEDIUM });
-    await source.dragTo(target);
+    await source.dragTo(target, options);
   }
 
   /**
@@ -354,8 +424,20 @@ export class WebActions {
    */
   public async scrollIntoView(locator: Locator, description = 'element'): Promise<void> {
     this.logger.debug(`Scrolling ${description} into view`);
-    await locator.waitFor({ state: 'attached', timeout: COMMON_TIMEOUTS.MEDIUM });
     await locator.scrollIntoViewIfNeeded();
+  }
+
+  // ==========================================
+  // MULTI-USER NAVIGATION SUPPORT
+  // ==========================================
+
+  /**
+   * Navigates directly to the dedicated portal/entry URL configured for a specific user role.
+   */
+  public async navigateToUser(role: StandardUserRole | string, subpath = ''): Promise<void> {
+    const targetUrl = ENV_CONFIG.getUserUrl(role, subpath);
+    this.logger.info(`Navigating to URL for user role "${role}": ${targetUrl}`);
+    await this.page.goto(targetUrl);
   }
 
   // ==========================================
@@ -363,7 +445,7 @@ export class WebActions {
   // ==========================================
 
   /**
-   * Sets up a one-time dialog handler (alert, confirm, prompt) before triggering action.
+   * Sets up a one-time dialog handler (alert, confirm, prompt) before triggering an action.
    */
   public async handleDialog(
     triggerAction: () => Promise<void>,
@@ -398,7 +480,9 @@ export class WebActions {
    * Locates a frame by selector or name.
    */
   public getFrame(frameSelector: string): Frame {
-    const frame = this.page.frame({ name: frameSelector }) || this.page.frame({ url: new RegExp(frameSelector) });
+    const frame =
+      this.page.frame({ name: frameSelector }) ||
+      this.page.frame({ url: new RegExp(frameSelector) });
     if (!frame) {
       throw new Error(`Frame matching "${frameSelector}" not found`);
     }
@@ -406,29 +490,26 @@ export class WebActions {
   }
 
   // ==========================================
-  // WAIT & SYNCHRONIZATION HELPERS
+  // SYNCHRONIZATION & ARTIFACT HELPERS
   // ==========================================
 
   /**
-   * Waits for an element to become visible.
+   * Explicitly waits for an element state (useful for spinners/overlays).
    */
-  public async waitForElementVisible(locator: Locator, timeout = COMMON_TIMEOUTS.MEDIUM, description = 'element'): Promise<void> {
-    this.logger.debug(`Waiting for ${description} to become visible`);
-    await locator.waitFor({ state: 'visible', timeout });
-  }
-
-  /**
-   * Waits for an element to become hidden or detached.
-   */
-  public async waitForElementHidden(locator: Locator, timeout = COMMON_TIMEOUTS.MEDIUM, description = 'element'): Promise<void> {
-    this.logger.debug(`Waiting for ${description} to become hidden`);
-    await locator.waitFor({ state: 'hidden', timeout });
+  public async waitForElementState(
+    locator: Locator,
+    state: 'visible' | 'hidden' | 'attached' | 'detached',
+    timeout = 10000,
+    description = 'element'
+  ): Promise<void> {
+    this.logger.debug(`Waiting for ${description} to be ${state}`);
+    await locator.waitFor({ state, timeout });
   }
 
   /**
    * Waits for network idle state.
    */
-  public async waitForNetworkIdle(timeout = COMMON_TIMEOUTS.MEDIUM): Promise<void> {
+  public async waitForNetworkIdle(timeout = 15000): Promise<void> {
     this.logger.debug('Waiting for network idle state');
     await this.page.waitForLoadState('networkidle', { timeout });
   }

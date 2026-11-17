@@ -15,9 +15,11 @@ Designed by and for **Principal Test Architects**, this framework delivers an en
 ```mermaid
 flowchart TD
     subgraph CLI ["Execution & Orchestration Layer"]
-        NPM["NPM Scripts / CLI"] --> Grep["Grep Tag Filter (@smoke, @regression)"]
-        Grep --> EnvLoader["Multi-Environment Loader (.env.dev, .env.qa, .env.staging, .env.prod)"]
-        EnvLoader --> Runner["Playwright Test Runner (Parallel Workers)"]
+        NPM["NPM Scripts / CLI: npm test -- --env=dev"] --> Runner["runner.js (Dispatcher)"]
+        Runner --> EnvLoader["Dynamic Environment Loader (environment.config.ts)"]
+        EnvLoader --> TSConfigs["qa.config.ts (Default) | dev.config.ts | staging.config.ts | prod.config.ts"]
+        TSConfigs --> MultiUser["Multi-User URLs (Admin, Standard, Vendor, Customer)"]
+        Runner --> PlaywrightRunner["Playwright Test Runner (Parallel Workers)"]
     end
 
     subgraph FixtureLayer ["Dependency Injection Layer (Custom Fixtures)"]
@@ -61,18 +63,21 @@ flowchart TD
 
 ```text
 playwright-enterprise-framework/
-├── .env.dev                      # Dev environment configurations
-├── .env.qa                       # QA environment configurations
-├── .env.staging                  # Staging environment configurations
-├── .env.prod                     # Production environment configurations
+├── runner.js                     # Unified cross-platform CLI runner with fallback defaults
 ├── .gitignore                    # Artifact and node_modules exclusions
-├── package.json                  # Dependencies & lifecycle execution scripts
+├── package.json                  # Dependencies & lifecycle execution scripts (0 runtime deps)
 ├── tsconfig.json                 # TypeScript compiler & path alias settings
 ├── playwright.config.ts          # Central Playwright runner config (workers, grep, reporters)
 ├── README.md                     # Comprehensive architecture documentation
 ├── src/
 │   ├── config/
-│   │   ├── environment.config.ts # Strongly-typed environment loader & schema validator
+│   │   ├── envs/                 # Pure TypeScript Environment Configurations
+│   │   │   ├── env.types.ts      # Strongly-typed environment & user profile interfaces
+│   │   │   ├── qa.config.ts      # QA environment preset (Default fallback)
+│   │   │   ├── dev.config.ts     # Dev environment preset
+│   │   │   ├── staging.config.ts # Staging environment preset
+│   │   │   └── prod.config.ts    # Production synthetic monitoring preset
+│   │   ├── environment.config.ts # Dynamic environment loader & multi-user URL manager
 │   │   └── test-data.config.ts   # File paths, timeouts, and constant configurations
 │   ├── core/
 │   │   ├── base.page.ts          # Abstract BasePage integrating all action libraries
@@ -112,18 +117,18 @@ playwright-enterprise-framework/
 ## 🧰 3. Readymade Core Action Libraries
 
 ### 3.1. `WebActions` (`src/core/web-actions.ts`)
-Encapsulates auto-waiting, self-healing DOM actions with descriptive logging:
+Encapsulates direct, auto-waiting DOM actions without redundant artificial delays or dual `waitFor` wrappers. Fully supports native Playwright `LocatorClickOptions` (`delay`, `force`, `clickCount`, etc.):
 
 | Method | Description |
 |---|---|
-| `click(locator, description, options)` | Clicks an element with auto-waiting for visibility and actionability. |
+| `click(locator, description, options)` | Clicks an element directly. Auto-waits natively and accepts native `delay`, `force`, `clickCount`, etc. |
 | `safeClick(locator, description, timeout)` | Non-throwing click attempt; returns `boolean` for conditional UI flows. |
-| `doubleClick(locator, description)` | Double clicks on an element. |
-| `rightClick(locator, description)` | Performs context-menu right click. |
-| `forceClick(locator, description)` | Bypasses DOM overlays when needed. |
+| `doubleClick(locator, description, options)` | Double clicks on an element directly with native options. |
+| `rightClick(locator, description, options)` | Performs context-menu right click with native options. |
+| `forceClick(locator, description)` | Bypasses DOM overlays directly via `{ force: true }`. |
 | `retryClick(locator, desc, retries)` | Retries clicking when transient animations or overlays occur. |
-| `enterText(locator, text, desc, opts)` | Waits for input and fills or clears & fills text. |
-| `clearAndType(locator, text, desc)` | Clears text and types sequentially with delay for autocompletes. |
+| `enterText(locator, text, desc, opts)` | Fills text directly with auto-waiting. |
+| `clearAndType(locator, text, desc, delay)` | Clears text and types sequentially with configurable keypress delay. |
 | `selectByValue(locator, value)` | Selects `<select>` option by `value` attribute. |
 | `selectByLabel(locator, label)` | Selects `<select>` option by visible label text. |
 | `selectByIndex(locator, index)` | Selects `<select>` option by 0-based index. |
@@ -132,6 +137,7 @@ Encapsulates auto-waiting, self-healing DOM actions with descriptive logging:
 | `check(locator)` / `uncheck(locator)` | Ensures checkbox or radio button state. |
 | `handleDialog(action, promptText)` | Auto-intercepts standard JS `alert`, `confirm`, or `prompt`. |
 | `hover(locator)` / `dragAndDrop(...)` | Mouse gestures and drag-and-drop operations. |
+| `navigateToUser(role, subpath)` | Navigates directly to role-specific portal (e.g. `admin`, `vendor`, `customer`). |
 
 ### 3.2. `WindowManager` (`src/core/window-manager.ts`)
 Simplifies tab, popup, and window switching:
@@ -178,47 +184,58 @@ test('Create and verify user via REST API @api', async ({ apiClient }) => {
 
 ---
 
-## 🌐 4. Zero-Dependency Multi-Environment Support
+## 🌐 4. Zero-Dependency Multi-Environment & Multi-User Architecture
 
-The framework eliminates external dependencies like `dotenv` by using a **pure TypeScript configuration matrix** ([environment.config.ts](file:///C:/Users/Shubi/.gemini/antigravity/scratch/playwright-enterprise-framework/src/config/environment.config.ts)).
+The framework eliminates external dependencies like `dotenv` by using **pure TypeScript configuration files ending in `.ts`** under `src/config/envs/`:
+- `qa.config.ts`: QA environment preset (**default fallback**)
+- `dev.config.ts`: Dev environment preset
+- `staging.config.ts`: Staging environment preset
+- `prod.config.ts`: Production synthetic monitoring preset
 
-### Why Pure TypeScript Over `dotenv`?
-1. **Zero Runtime Dependencies**: No `dotenv` package needed in `dependencies`.
-2. **Compile-Time Type Safety**: Typographical errors in configuration keys are flagged immediately by TypeScript.
-3. **Instant IDE Autocomplete**: Fully typed environment schema with URL validation, credential trees, and feature flags.
-4. **Environment Variable Overrides**: Supports CLI or CI/CD process overrides (e.g. `BASE_URL=...`) without losing preset defaults.
+### 4.1. Dynamic Configuration Loader
+Loaded dynamically by [environment.config.ts](file:///C:/Users/Shubi/.gemini/antigravity/scratch/playwright-enterprise-framework/src/config/environment.config.ts) based on CLI arguments (e.g. `--env=dev`). If no environment flag is specified, it automatically falls back to `qa.config.ts`.
 
-### Environment Presets
-- **`dev`**: `https://dev.example.com` (API: `https://api-dev.example.com`, experimental UI: `true`)
-- **`qa`** *(default fallback)*: `https://qa.example.com` (API: `https://api-qa.example.com`)
-- **`staging`**: `https://staging.example.com` (API: `https://api-staging.example.com`)
-- **`prod`**: `https://prod.example.com` (API: `https://api.example.com`)
+### 4.2. Multi-User & Role-Based URL Support
+Enterprise architectures frequently maintain separate portals for distinct user roles (e.g., Administrator, Standard User, Vendor, Customer). Each `.ts` configuration declares user-specific URLs:
 
-```bash
-# Run against QA (default)
-npm test
-
-# Run against DEV
-npm run test:dev
-
-# Run against STAGING
-npm run test:staging
-
-# Run against PROD
-npm run test:prod
-
-# Custom CLI override
-cross-env ENV=staging BASE_URL=https://custom-preview.example.com npm test
+```typescript
+// Inside src/config/envs/qa.config.ts
+export const QA_CONFIG: EnvironmentConfigData = {
+  envName: 'qa',
+  baseUrl: 'https://qa.example.com',
+  apiBaseUrl: 'https://api-qa.example.com',
+  users: {
+    admin: {
+      role: 'admin',
+      portalUrl: 'https://admin-qa.example.com',
+      username: 'qa-admin@example.com',
+    },
+    standard: {
+      role: 'standard',
+      portalUrl: 'https://portal-qa.example.com',
+    },
+    vendor: {
+      role: 'vendor',
+      portalUrl: 'https://vendor-qa.example.com',
+    },
+    customer: {
+      role: 'customer',
+      portalUrl: 'https://app-qa.example.com',
+    },
+  },
+};
 ```
 
-### Type-Safe Config Access
-In tests or page objects, access typed environment properties directly:
+### 4.3. Multi-User Navigation in Tests
 ```typescript
-test('validate api endpoint', async ({ env }) => {
-  console.log(`Testing against: ${env.baseUrl}`);
-  console.log(`API URL: ${env.apiBaseUrl}`);
-  console.log(`Admin user: ${env.credentials.admin.username}`);
-});
+// 1. Direct navigation via WebActions
+await webActions.navigateToUser('admin', '/dashboard');
+
+// 2. Direct navigation via BasePage in Page Objects
+await page.navigateAsUser('vendor', '/invoices');
+
+// 3. Resolve user URL with custom subpaths
+const customerUrl = env.getUserUrl('customer', '/account/settings');
 ```
 
 ---
@@ -349,7 +366,7 @@ The framework uses a unified launcher ([runner.js](file:///C:/Users/Shubi/.gemin
 ### Default Fallbacks & Runtime Overrides Matrix
 | Parameter | Default Fallback Value | Runtime CLI Override Flags |
 |---|---|---|
-| **Environment** | `qa` (`.env.qa` preset) | `--env=dev` \| `--env=staging` \| `--env=prod` |
+| **Environment** | `qa` (`src/config/envs/qa.config.ts`) | `--env=dev` \| `--env=staging` \| `--env=prod` |
 | **UI Base URL** | Inherited from active environment preset | `--base-url="https://..."` \| `-u "https://..."` |
 | **API Base URL** | Inherited from active environment preset | `--api-base-url="https://..."` |
 | **Tag Filter** | `@smoke` (fast sanity health check) | `--grep="@regression"` \| `--grep="@api"` \| `--all` |

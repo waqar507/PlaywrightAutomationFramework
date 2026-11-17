@@ -4,12 +4,12 @@ import { WindowManager } from '@core/window-manager';
 import { FileActions } from '@core/file-actions';
 import { AssertionHelper } from '@core/assertion-helper';
 import { Logger } from '@utils/logger';
-import { ENV_CONFIG } from '@config/environment.config';
+import { ENV_CONFIG, StandardUserRole, UserProfile } from '@config/environment.config';
 
 /**
  * Enterprise Base Page
  * Foundational class for all Page Object Models, integrating actions, window management,
- * file operations, assertions, and logging.
+ * file operations, assertions, logging, and multi-user URL capabilities.
  */
 export abstract class BasePage {
   readonly page: Page;
@@ -31,15 +31,46 @@ export abstract class BasePage {
   }
 
   /**
-   * Navigates to a specific URL or relative path prefixed by ENV_CONFIG.baseUrl.
+   * Navigates to a specific URL or relative path.
+   * If a userRole is passed, uses the dedicated URL configured for that user.
    */
-  public async navigate(pathOrUrl = ''): Promise<void> {
-    const targetUrl = pathOrUrl.startsWith('http') || pathOrUrl.startsWith('file://')
-      ? pathOrUrl
-      : `${ENV_CONFIG.baseUrl}${pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`}`;
+  public async navigate(pathOrUrl = '', userRole?: StandardUserRole | string): Promise<void> {
+    let targetUrl: string;
 
-    this.logger.info(`Navigating to: ${targetUrl}`);
+    if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://') || pathOrUrl.startsWith('file://')) {
+      targetUrl = pathOrUrl;
+    } else if (userRole) {
+      targetUrl = ENV_CONFIG.getUserUrl(userRole, pathOrUrl);
+    } else {
+      const cleanPath = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
+      targetUrl = `${ENV_CONFIG.baseUrl.replace(/\/$/, '')}${cleanPath}`;
+    }
+
+    this.logger.info(`Navigating to: ${targetUrl}${userRole ? ` (User Role: ${userRole})` : ''}`);
     await this.page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
+  }
+
+  /**
+   * Navigates directly to the portal / entry URL for a specific user role.
+   */
+  public async navigateAsUser(userRole: StandardUserRole | string, subpath = ''): Promise<void> {
+    const userUrl = ENV_CONFIG.getUserUrl(userRole, subpath);
+    this.logger.info(`Navigating as user role "${userRole}" to: ${userUrl}`);
+    await this.page.goto(userUrl, { waitUntil: 'domcontentloaded' });
+  }
+
+  /**
+   * Retrieves the URL configured for a specific user role.
+   */
+  public getUserUrl(userRole: StandardUserRole | string, subpath = ''): string {
+    return ENV_CONFIG.getUserUrl(userRole, subpath);
+  }
+
+  /**
+   * Retrieves the credentials / profile for a specific user role.
+   */
+  public getUser(userRole: StandardUserRole | string): UserProfile {
+    return ENV_CONFIG.getUser(userRole);
   }
 
   /**
