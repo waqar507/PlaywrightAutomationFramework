@@ -21,6 +21,7 @@ export interface EnvironmentConfigData {
   readonly userUrls: Record<string, string>;
   readonly users: Record<string, UserProfile>;
   readonly featureFlags: Record<string, boolean>;
+  readonly ciEnvironment: string;
 }
 
 export interface EnvironmentConfig extends EnvironmentConfigData {

@@ -53,7 +53,7 @@ for (const arg of args) {
 // Fallback to 'qa' if no environment is provided
 process.env.ENV = (process.env.ENV || 'qa').toLowerCase();
 
-console.log(`\n🚀 [Test Runner] Environment: ${process.env.ENV.toUpperCase()} | Base URL: ${process.env.BASE_URL || 'Config Default'}\n`);
+//console.log(`\n🚀 [Test Runner] Environment: ${process.env.ENV.toUpperCase()} | Base URL: ${process.env.BASE_URL || 'Config Default'}\n`);
 
 // Directly execute Playwright CLI via Node
 const playwrightCli = path.resolve('node_modules', '@playwright', 'test', 'cli.js');

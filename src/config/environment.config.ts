@@ -25,13 +25,14 @@ const targetEnvironment = cmdLineUrl ? 'Featured (Dynamic) Environment' : enviro
 
 // 4. Now the cmdLine will override value of config file for base url
 const baseUrl = cmdLineUrl || environmentConfig.baseUrl;
-
+console.log(`\n🚀 [Test Runner] Environment: ${targetEnvironment} | Base URL: ${baseUrl}\n`);
 // 5. Merged environment configuration
 export const ENV_CONFIG: EnvironmentConfig = {
   ...environmentConfig,
   envName: environmentName,
   baseUrl,
-  targetEnvironment,
+  ciEnvironment: cmdLineMessage + ' - ' + targetEnvironment,
+
 
   // Capability to resolve different URLs for different users / roles
   getUserUrl: (role: StandardUserRole | string, subpath = '') => {
